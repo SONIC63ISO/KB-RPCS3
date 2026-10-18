@@ -1,0 +1,81 @@
+name: KB-RPCS3 PS5 Build
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    # Use Ubuntu 24.04 with ARM64 container
+    runs-on: ubuntu-24.04
+    container:
+      image: arm64v8/ubuntu:24.04
+      options: --privileged  # for possible QEMU support
+
+    env:
+      # Set fixed workspace as in build instructions
+      WORK_ROOT: ${{ github.workspace }}/work
+      PS5_PAYLOAD_SDK: ${{ env.WORK_ROOT }}/PS5_PayloadSDK
+      PS5_VULKAN_DIR: ${{ env.WORK_ROOT }}/PS5_Vulkan
+      PS5_RESTOARCH: ${{ env.WORK_ROOT }}/PS5_RetroArch
+
+    steps:
+      - name: Checkout KB-RPCS3
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y build-essential cmake ninja-build git python3 pkg-config clang lld llvm wget curl unzip
+
+      - name: Prepare workspace
+        run: |
+          mkdir -p $WORK_ROOT
+          cd $WORK_ROOT
+
+      - name: Clone PS5_PayloadSDK
+        run: |
+          git clone --depth 1 https://github.com/mihawk-99/PS5_PayloadSDK.git
+
+      - name: Clone PS5_Vulkan (RADV)
+        run: |
+          git clone --depth 1 https://github.com/mihawk-99/PS5_Vulkan.git
+
+      - name: (Optional) Build PS5 Vulkan driver
+        run: |
+          cd $WORK_ROOT/PS5_Vulkan
+          mkdir build && cd build
+          export PS5_PAYLOAD_SDK=$PS5_PAYLOAD_SDK
+          cmake .. -Bdist  -GNinja -DCMAKE_BUILD_TYPE=Release
+          ninja -Cdist   # This builds the RADV release archive (time-consuming)
+        # Alternatively, skip if using prebuilt
+
+      - name: Clone Vulkan-Headers and volk
+        run: |
+          wget -q https://sdk.lunarg.com/sdk/download/1.4.354.0/linux/vulkansdk-linux-x86_64-1.4.350.1-...tar.gz -O volk.tar.gz
+          tar xzf volk.tar.gz -C /usr --strip-components=1  # installs volk/vulkan-headers
+
+      - name: Apply RPCS3 patches
+        run: |
+          mkdir rpcs3-src rpcs3-build
+          port/apply-rpcs3-patches.sh rpcs3-src
+        working-directory: ${{ github.workspace }}
+
+      - name: Build RPCS3 emulator core
+        run: |
+          SRC_DIR=rpcs3-src BUILD_DIR=rpcs3-build JOBS=8 port/rpcs3-build.sh rpcs3_ps5
+        working-directory: ${{ github.workspace }}
+
+      - name: Build PS5 title (KB-RPCS3)
+        run: |
+          mkdir app-build
+          cp -r app app-build-copy
+          APP_DIR=app-build-copy RPCS3_BUILD_DIR=rpcs3-build tools/vm-build-app.sh
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload PS5 title artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kb-rpcs3-ps5-dist
+          path: dist/PPSA99303/
+          if-no-files-found: error
