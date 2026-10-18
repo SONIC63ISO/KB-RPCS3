@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+++++++++++++++++++#!/usr/bin/env bash
 # Configure + build RPCS3's emulator library (rpcs3_emu, no Qt) for the PS5, in the VM.
 # Runs inside `ps5build` (copy it in, or run via: limactl shell ps5build -- bash <this file>).
 #   rpcs3-build.sh [ninja target...]     default target: rpcs3_emu
