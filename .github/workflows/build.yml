@@ -1,44 +1,6 @@
-name: KB-RPCS3 Build Check
+port/apply-rpcs3-patches.sh "$HOME/work/rpcs3"
 
-on:
-  workflow_dispatch:
-
-jobs:
-  check:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Check required build files
-        shell: bash
-        run: |
-          set +e
-          echo "=== Project build instructions ==="
-          sed -n '1,100p' BUILDING.md
-
-          echo "=== Required PS5 build tools ==="
-          for path in \
-            "$HOME/work/ps5-rpcs3-app/.deps/native/ps5-payload-sdk" \
-            "$HOME/work/PS5_RetroArch/.deps/native" \
-            "$HOME/work/deps/Vulkan-Headers-1.4.354" \
-            "$HOME/work/deps/volk-vulkan-sdk-1.4.350.1"
-          do
-            if [ -e "$path" ]; then
-              echo "FOUND: $path"
-            else
-              echo "MISSING: $path"
-            fi
-          done
-
-          echo "=== RPCS3 patches ==="
-          find port/rpcs3-patches -type f | wc -l
-
-          echo "This runner has not built a PS5 payload."
-
-      - name: Upload report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: kb-rpcs3-build-check
-          path: BUILDING.md
+SRC_DIR="$HOME/work/rpcs3" \
+BUILD_DIR="$HOME/work/rpcs3-build" \
+JOBS=4 \
+port/rpcs3-build.sh rpcs3_ps5
