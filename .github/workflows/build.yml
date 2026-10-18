@@ -1,48 +1,44 @@
-name: KB-RPCS3 PS5 Build
+name: KB-RPCS3 Build Check
 
 on:
   workflow_dispatch:
 
 jobs:
-  prepare:
+  check:
     runs-on: ubuntu-24.04
-
     steps:
-      - name: Checkout KB-RPCS3
+      - name: Checkout source
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Install build tools
+      - name: Check required build files
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            cmake \
-            ninja-build \
-            git \
-            python3 \
-            python3-pip \
-            pkg-config \
-            clang \
-            lld \
-            llvm
-
-      - name: Inspect required PS5 build environment
-        run: |
-          echo "Checking build scripts and dependencies..."
+          set +e
+          echo "=== Project build instructions ==="
           sed -n '1,100p' BUILDING.md
-          echo "---- RPCS3 build script ----"
-          sed -n '1,100p' port/rpcs3-build.sh
-          echo "---- Application build script ----"
-          sed -n '1,100p' tools/vm-build-app.sh
 
-      - name: Upload build instructions
+          echo "=== Required PS5 build tools ==="
+          for path in \
+            "$HOME/work/ps5-rpcs3-app/.deps/native/ps5-payload-sdk" \
+            "$HOME/work/PS5_RetroArch/.deps/native" \
+            "$HOME/work/deps/Vulkan-Headers-1.4.354" \
+            "$HOME/work/deps/volk-vulkan-sdk-1.4.350.1"
+          do
+            if [ -e "$path" ]; then
+              echo "FOUND: $path"
+            else
+              echo "MISSING: $path"
+            fi
+          done
+
+          echo "=== RPCS3 patches ==="
+          find port/rpcs3-patches -type f | wc -l
+
+          echo "This runner has not built a PS5 payload."
+
+      - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kb-rpcs3-build-requirements
-          path: |
-            BUILDING.md
-            port/
-            tools/
+          name: kb-rpcs3-build-check
+          path: BUILDING.md
